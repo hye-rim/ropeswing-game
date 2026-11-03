@@ -15,8 +15,9 @@
     chase0: 55, chaseMax: 190, chaseRamp: 0.05,      // 쫓아오는 불길 속도(초당): 처음 55 → 멀어질수록 빨라져 최대 190
   };
   const LEVELS = {
-    easy: { gapMin: 125, gapMax: 185, lava: 650, pillarFrom: 700, pillarP: 0.25, coinP: 0.8, label: '쉬움' },
-    normal: { gapMin: 150, gapMax: 235, lava: 620, pillarFrom: 250, pillarP: 0.4, coinP: 0.6, label: '보통' },
+    // lives 목숨(용암·바위에 빠지면 가까운 고리 아래에서 다시 시작, 불길은 목숨과 상관없이 끝) · reach 줄이 닿는 거리 · growthMax 멀어질수록 벌어지는 간격의 한도 · chase0/chaseMax/chaseRamp 쫓아오는 불길 속도(처음·최대·거리당 증가)
+    easy: { gapMin: 95, gapMax: 150, lives: 3, growthMax: 50, reach: 290, lava: 760, pillarFrom: 1500, pillarP: 0.12, coinP: 0.8, chase0: 25, chaseMax: 90, chaseRamp: 0.02, label: '쉬움' },
+    normal: { gapMin: 150, gapMax: 235, lives: 1, growthMax: 150, reach: 240, lava: 620, pillarFrom: 250, pillarP: 0.4, coinP: 0.6, chase0: 55, chaseMax: 190, chaseRamp: 0.05, label: '보통' },
   };
   const rng = (seed) => { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; };
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -27,7 +28,7 @@
     const params = Object.assign({}, LEVELS[lv]);
     if (opts.coinP !== undefined) params.coinP = opts.coinP;
     const st = { rand, level: lv, params, x: P.startX, y: P.startY, vx: 150, vy: 0, rope: null, holding: false, anchors: [], coins: [], pillars: [],
-      genX: 160, lastAy: 120, t: 0, over: false, score: 0, coinsGot: 0, maxX: P.startX, events: [], forgiving: !!opts.forgiving, attaches: 0, nextId: 1, lastAnchor: -1, chase: -420 };
+      genX: 160, lastAy: 120, t: 0, over: false, score: 0, coinsGot: 0, maxX: P.startX, events: [], forgiving: !!opts.forgiving, lives: params.lives || 1, attaches: 0, nextId: 1, lastAnchor: -1, chase: -420 };
     st.anchors.push({ id: st.nextId++, x: 160, y: 120 });                       // 처음 고리는 바로 앞에
     generate(st, 1400);
     return st;
@@ -38,7 +39,7 @@
     const p = st.params;
     while (st.genX < upToX) {
       const meters = st.genX / 10;
-      const growth = Math.min(150, meters / 14);                                 // 멀어질수록 간격이 조금씩 벌어짐
+      const growth = Math.min(p.growthMax, meters / 14);                                 // 멀어질수록 간격이 조금씩 벌어짐
       const gap = p.gapMin + st.rand() * (p.gapMax - p.gapMin) + growth;
       const prevX = st.genX;
       st.genX += gap;
@@ -63,7 +64,7 @@
     let best = null, bk = 1e9;
     for (const a of st.anchors) {
       const dx = a.x - st.x, dy = a.y - st.y, d = Math.hypot(dx, dy);
-      if (d > P.reach || dy > -40 || dx < -30) continue;
+      if (d > st.params.reach || dy > -40 || dx < -30) continue;
       const key = d - dx * 0.55 + (dx < 0 ? 120 : 0);
       if (key < bk) { bk = key; best = a; }
     }
@@ -92,6 +93,7 @@
 
   function die(st, why) {
     if (st.forgiving) { rescue(st, why); return; }
+    if (why !== 'fire' && st.lives > 1) { st.lives--; rescue(st, why); st.events[st.events.length - 1].lives = st.lives; return; }
     st.over = true; st.rope = null; st.events.push({ type: 'die', why });
   }
   // 연습용: 죽는 대신 가장 가까운 앞쪽 고리 아래에서 다시 떨어짐
@@ -106,7 +108,7 @@
     const sub = Math.max(1, Math.ceil(dt / (1 / 120))), h = dt / sub;
     for (let s = 0; s < sub && !st.over; s++) sub1(st, h);
     st.t += dt;
-    if (!st.forgiving) st.chase += (P.chase0 + Math.min(P.chaseMax - P.chase0, meters(st) * P.chaseRamp)) * dt;      // 뒤에서 쫓아오는 불길
+    if (!st.forgiving) { const q = st.params; st.chase += (q.chase0 + Math.min(q.chaseMax - q.chase0, meters(st) * q.chaseRamp)) * dt; }      // 뒤에서 쫓아오는 불길
     generate(st, st.x + 1300);
     // 지나간 것 치우기
     if (st.anchors.length > 40) st.anchors = st.anchors.filter((a) => a.x > st.x - 700 || (st.rope && a.id === st.rope.id));

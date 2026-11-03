@@ -53,7 +53,7 @@ window.__rs = { get G() { return G; }, get state() { return state; }, L, step: (
 // ---------- 흐름 ----------
 function showOverlay(html) { const o = $('overlay'); o.innerHTML = html; o.classList.remove('hidden'); o.querySelectorAll('button').forEach((b) => { b.onclick = () => onOverlayButton(b.dataset.level); }); }
 function hideOverlay() { $('overlay').classList.add('hidden'); }
-const lvButtons = () => `<div class="lv"><button data-level="easy">쉬움<small>고리 가깝고 바위 적음</small></button><button data-level="normal">보통<small>기록 저장</small></button></div>`;
+const lvButtons = () => `<div class="lv"><button data-level="easy">쉬움<small>목숨 3개 · 고리 가깝고 불길 느림</small></button><button data-level="normal">보통<small>기록 저장</small></button></div>`;
 function onOverlayButton(lv) { if (state === 'paused') { resume(); return; } start(lv); }
 function showTitle() {
   state = 'title';
@@ -138,7 +138,7 @@ function onEvent(ev) {
   } else if (ev.type === 'release') { if (ev.held > 0.25) { sfx.release(ev.speed); tutorialSignal('release'); } }
   else if (ev.type === 'miss') { sfx.miss(); floats.push({ x: G.x, y: G.y - 30, t: 0, text: '닿는 고리가 없어요', color: '#ffb3b3' }); }
   else if (ev.type === 'coin') { sfx.coin(); tutorialSignal('coin'); floats.push({ x: ev.x, y: ev.y - 10, t: 0, text: '+5', color: '#ffe36a' }); for (let i = 0; i < 6; i++) { const a = Math.random() * 6.28; parts.push({ x: ev.x, y: ev.y, vx: Math.cos(a) * 80, vy: Math.sin(a) * 80 - 40, t: 0, life: 0.4, color: '#ffe36a', r: 2.5 }); } }
-  else if (ev.type === 'rescue') { sfx.rescue(); flash = 0.3; floats.push({ x: G.x, y: G.y - 40, t: 0, text: '연습이라 다시 떨어져요!', color: '#fff' }); }
+  else if (ev.type === 'rescue') { sfx.rescue(); flash = 0.3; floats.push({ x: G.x, y: G.y - 40, t: 0, text: ev.lives ? `목숨 −1 · 남은 ❤ ${ev.lives}` : '연습이라 다시 떨어져요!', color: '#fff' }); }
   else if (ev.type === 'die') lastWhy = ev.why;
 }
 
@@ -234,6 +234,7 @@ function drawHud() {
   ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.font = '900 24px sans-serif'; ctx.fillText(`${L.meters(G)}m`, W / 2, 28);
   ctx.textAlign = 'left'; ctx.font = '800 14px sans-serif'; ctx.fillText(`🪙 ${G.coinsGot}`, 10, 27);
   ctx.font = '700 11px sans-serif'; ctx.fillStyle = '#ddd'; if (!tut) ctx.fillText(`점수 ${L.scoreOf(G)}`, 10, 39);
+  if (!tut && G.params.lives > 1) { ctx.fillStyle = '#ff7a8a'; ctx.fillText('❤'.repeat(G.lives), 10, 53); }
   if (state === 'play' && !firstAttach && !G.over) { ctx.textAlign = 'center'; ctx.fillStyle = `rgba(255,255,255,${0.65 + 0.35 * Math.sin(clock * 6)})`; ctx.font = '900 18px sans-serif'; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.strokeText('꾹 누르세요!', W / 2, 230); ctx.fillText('꾹 누르세요!', W / 2, 230); }
 }
 

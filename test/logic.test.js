@@ -155,3 +155,33 @@ test('meters and score', () => {
   assert.strictEqual(L.meters(st), 123);
   assert.strictEqual(L.scoreOf(st), 123 + 15);
 });
+
+test('easy has 3 lives: lava and rocks rescue you, the last one ends the game, normal has 1', () => {
+  const st = L.newGame(L.rng(5), { level: 'easy' });
+  assert.strictEqual(st.lives, 3);
+  st.y = st.params.lava; L.step(st, 1 / 60);
+  assert.strictEqual(st.over, false);
+  assert.strictEqual(st.lives, 2);
+  assert.ok(st.events.some((e) => e.type === 'rescue' && e.lives === 2));
+  st.y = st.params.lava; L.step(st, 1 / 60);
+  assert.strictEqual(st.lives, 1);
+  st.y = st.params.lava; L.step(st, 1 / 60);
+  assert.strictEqual(st.over, true);
+  assert.strictEqual(L.newGame(L.rng(5), { level: 'normal' }).lives, 1);
+});
+
+test('the fire behind ignores lives', () => {
+  const st = L.newGame(L.rng(5), { level: 'easy' });
+  st.chase = st.x + 100; L.step(st, 1 / 60);
+  assert.strictEqual(st.over, true);
+  assert.strictEqual(st.events.filter((e) => e.type === 'die')[0].why, 'fire');
+});
+
+test('easy is gentler than normal: closer rings, longer reach, lower lava, slower fire', () => {
+  const e = L.LEVELS.easy, n = L.LEVELS.normal;
+  assert.ok(e.gapMax < n.gapMin + 1 || e.gapMax < n.gapMax);
+  assert.ok(e.reach > n.reach && e.lava > n.lava && e.chaseMax < n.chaseMax && e.chase0 < n.chase0 && e.growthMax < n.growthMax);
+  const st = L.newGame(L.rng(5), { level: 'easy' });
+  st.x = 3000; st.anchors.push({ id: 999, x: 3000 + 270, y: st.y - 100 });         // 보통(240)이면 안 닿고 쉬움(290)이면 닿는 거리
+  assert.ok(L.pickAnchor(st));
+});
