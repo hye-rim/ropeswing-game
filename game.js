@@ -51,9 +51,10 @@ window.__rs = { get G() { return G; }, get state() { return state; }, L, step: (
 /* @test-hooks:end */
 
 // ---------- 흐름 ----------
-function showOverlay(html) { const o = $('overlay'); o.innerHTML = html; o.classList.remove('hidden'); o.querySelectorAll('button').forEach((b) => { b.onclick = () => onOverlayButton(b.dataset.level); }); }
+function showOverlay(html) { const o = $('overlay'); o.innerHTML = html; o.classList.remove('hidden'); o.querySelectorAll('button:not([data-share])').forEach((b) => { b.onclick = () => onOverlayButton(b.dataset.level); }); }
 function hideOverlay() { $('overlay').classList.add('hidden'); }
-const lvButtons = () => `<div class="lv"><button data-level="easy">쉬움<small>목숨 3개 · 고리 가깝고 불길 느림</small></button><button data-level="normal">보통<small>기록 저장</small></button></div>`;
+let daily = false;                                                   // 이번 판이 오늘의 판인가 (로비의 daily.js)
+const lvButtons = () => `<div class="lv"><button data-level="easy">쉬움<small>목숨 3개 · 고리 가깝고 불길 느림</small></button><button data-level="normal">보통<small>기록 저장</small></button>${window.arcadeDaily ? arcadeDaily.buttonHtml() : ''}</div>`;
 function onOverlayButton(lv) { if (state === 'paused') { resume(); return; } start(lv); }
 function showTitle() {
   state = 'title';
@@ -65,7 +66,8 @@ function start(lv) {
   tut = /[?&]tutorial=1/.test(location.search);
   if (tut) lv = 'easy';
   level = lv === 'normal' ? 'normal' : 'easy';
-  G = L.newGame(Math.random, tut ? { level, forgiving: true, coinP: 1 } : { level });
+  daily = !tut && lv === 'normal' && !!(window.arcadeDaily && arcadeDaily.take());
+  G = L.newGame(daily ? arcadeDaily.rng() : Math.random, tut ? { level, forgiving: true, coinP: 1 } : { level });
   cam = { x: G.x - 150, top: -20 };
   parts = []; floats = []; trail = []; shake = 0; newBest = false; firstAttach = false; lastMile = 0; flash = 0; deathT = 0;
   pointerHeld = null; keyHeld = false;
@@ -74,13 +76,14 @@ function start(lv) {
 function gameOver(why) {
   state = 'over'; sfx.die(); shake = 0.4; deathT = 0;
   const sc = L.scoreOf(G);
+  if (!tut && window.arcadeRun) arcadeRun({ level, bad: L.meters(G) < 80 });     // 연패 구제(로비): 80m 도 못 가면 나쁜 판
   newBest = level === 'normal' && !tut && sc > best;
   if (newBest) { best = sc; store.set('ropeswingBest', String(best)); setTimeout(sfx.best, 450); }
   for (let i = 0; i < 18; i++) { const a = -Math.random() * Math.PI, v = 80 + Math.random() * 220; parts.push({ x: G.x, y: Math.min(G.y, G.params.lava - 4), vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: 0, life: 0.8, color: why === 'rock' ? '#bbb' : '#ff8a2e', r: 3 }); }
   setTimeout(() => {
     if (state !== 'over') return;
     const why2 = why === 'lava' ? '용암에 빠졌어요!' : why === 'fire' ? '불길에 잡혔어요!' : '바위에 부딪혔어요!';
-    showOverlay(`<h2>${why2}</h2><div class="big">${L.meters(G)}m · ${G.coinsGot}코인</div><p>점수 <b>${sc}</b>${newBest ? ' · 🎉 새 최고 기록!' : level === 'normal' ? ` · 최고 ${best}점` : ' · 쉬움에서는 기록이 저장되지 않아요'}</p>${lvButtons()}`);
+    showOverlay(`<h2>${why2}</h2><div class="big">${L.meters(G)}m · ${G.coinsGot}코인</div><p>점수 <b>${sc}</b>${newBest ? ' · 🎉 새 최고 기록!' : level === 'normal' ? ` · 최고 ${best}점` : ' · 쉬움에서는 기록이 저장되지 않아요'}</p>${daily ? arcadeDaily.result('로프 스윙', sc, '점') : ''}${lvButtons()}`);
   }, 900);
 }
 function pause() { if (state !== 'play') return; doRelease(); state = 'paused'; showOverlay(`<h2>일시정지</h2><button>계속하기</button>`); }
